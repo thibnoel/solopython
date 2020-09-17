@@ -8,7 +8,7 @@ from time import clock, sleep
 from utils.viewerClient import viewerClient
 from solo8 import Solo8
 
-def compute_coll_avoidance_torque(q, vq, clib_path, dist_thresh=0.1, kp=0, kv=0):
+def compute_coll_avoidance_torque(q, vq, nb_motors, clib_path, dist_thresh=0.1, kp=0, kv=0):
     # Load the specified compiled C library
     cCollFun = CDLL(clib_path)
     # Initialize repulsive torque
@@ -51,7 +51,7 @@ def example_script(name_interface, clib_path):
         
         #device.SetDesiredJointTorque([0]*nb_motors)
         # Compute collision avoidance torque
-        tau_coll_avoid = compute_coll_avoidance_torque(device.q_mes, device.v_mes, clib_path, dist_thresh=collision_threshold, kp=collision_kp, kd=collision_kv)
+        tau_coll_avoid = compute_coll_avoidance_torque(device.q_mes, device.v_mes, nb_motors, clib_path, dist_thresh=collision_threshold, kp=collision_kp, kd=collision_kv)
         device.SetDesiredJointTorque(tau_coll_avoid)
 
         device.SendCommand(WaitEndOfCycle=True)
