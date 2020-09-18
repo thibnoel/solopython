@@ -8,7 +8,7 @@ from time import clock, sleep
 from utils.viewerClient import viewerClient
 from solo8 import Solo8
 
-def compute_coll_avoidance_torque(q, vq, clib, dist_thresh=0.1, kp=0, kv=0):
+def compute_coll_avoidance_torque(q, vq, clib, dist_thresh=0.1, kp=0, kv=0, nb_motors=8):
     # Initialize repulsive torque
     tau_avoid = np.zeros(nb_motors)
     
@@ -24,8 +24,8 @@ def compute_coll_avoidance_torque(q, vq, clib, dist_thresh=0.1, kp=0, kv=0):
         
         tau_rep = np.zeros(nb_motors)
         # If violation, compute viscoelastic repulsive torque along the collision jacobian
-        if(d < thresh):
-            tau_rep = -kp*(d - thresh) - kv*J@vq
+        if(d < dist_thresh):
+            tau_rep = -kp*(d - dist_thresh) - kv*J@vq
         tau_avoid += tau_rep*J.T
     
     return tau_avoid
