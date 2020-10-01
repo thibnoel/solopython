@@ -1,5 +1,6 @@
 # coding: utf8
-from coll_avoidance_modules.legs_cpp_wrapper import *
+from coll_avoidance_modules.solo_coll_wrapper_c import *
+from coll_avoidance_modules.collisions_controller import *
 
 import numpy as np
 import argparse
@@ -7,32 +8,6 @@ import math
 from time import clock, sleep
 from utils.viewerClient import viewerClient
 from solo8 import Solo8
-
-def compute_coll_avoidance_torque(q, vq, clib, dist_thresh=0.1, kp=0, kv=0, nb_motors=8):
-    # Initialize repulsive torque
-    tau_avoid = np.zeros(nb_motors)
-
-    # Loop through the distance results to check for threshold violation
-    for i in range(len(c_dist_legs)):
-        J = c_Jlegs[i]
-        d = c_dist_legs[i]
-        
-        tau_rep = np.zeros(nb_motors)
-        # If violation, compute viscoelastic repulsive torque along the collision jacobian
-        if(d < dist_thresh and (i in active_pairs)):
-            tau_rep = -kp*(d - dist_thresh) - kv*J@vq
-        tau_avoid += tau_rep*J.T
-    
-    return tau_avoid
-
-
-def computeEmergencyTorque(q,vq,nb_motors=8):
-	tau_em = np.zeros(nb_motors)
-	return tau_em
-
-
-def emergencyTrigger(q, vq, tau_q):
-    return False
 
 
 def example_script(name_interface, clib_path):
@@ -47,33 +22,37 @@ def example_script(name_interface, clib_path):
     collision_kp = 1.
     collision_kv = 0.
 
+    emergency_dist_thresh = collision_threhsold/5
+    emergency_tau_thresh = 3
+
     # Load the specified compiled C library
     cCollFun = CDLL(clib_path)
 	# Initialize emergency behavior trigger var.
-	isEmergency = False
+	emergencyFlag = False
 
     device.Init(calibrateEncoders=False)
     #CONTROL LOOP ***************************************************
     while ((not device.hardware.IsTimeout()) and (clock() < 200)):
         device.UpdateMeasurment()
 		
+        tau_q = np.zeros(len(nb_motors))
 		# Check if the controller switched to emergency mode
-		if(isEmergency):
+		if(emergencyFlag):
 			# Compute emergency behavior
 			# Ex :
-			tau_emergency = computeEmergencyTorque(device.q_mes, device.v_mes)
-			device.SetDesiredJointTorque(tau_emergency)
+			tau_q = computeEmergencyTorque(device.v_mes, collision_kv)
 		else:
 		    # Compute collisions distances and jacobians from the C lib. 
-			c_results = getLegsCollisionsResults8(q, clib)
-			c_dist_legs = getDistances8(c_results)
-			c_Jlegs = getJacobians8(c_results)
-
+			c_results = getLegsCollisionsResults(q, clib, nb_motors, 6)
+			c_dist_legs = getDistances(c_results, nb_motors, 6)
+			c_Jlegs = getJacobians(c_results, nb_motors, 6)
 		    # Compute collision avoidance torque
-		    tau_coll_avoid = compute_coll_avoidance_torque(device.q_mes, device.v_mes, cCollFun, dist_thresh=collision_threshold, kp=collision_kp, kd=collision_kv)
-		    device.SetDesiredJointTorque(tau_coll_avoid)
-			# Check the condition for triggering emergency behavior
-			isEmergency = emergencyTrigger(device.q_mes, device.v_mes, tau_coll_avoid)
+            tau_q = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, dist_thresh=collision_threshold, kp=collision_kp, kv=collision_kv)
+
+        # Set the computed torque as command
+        device.SetDesiredJointTorque(tau_q)
+        # Check the condition for triggering emergency behavior
+        emergencyFlag = emergencyFlag or emergencyCondition(c_dist_legs, device.v_mes, tau_q, emergency_dist_thresh, emergency_tau_thresh):
 
         device.SendCommand(WaitEndOfCycle=True)
         if ((device.cpt % 100) == 0):
