@@ -22,6 +22,8 @@ def example_script(name_interface, clib_path):
     collision_kp = 1.
     collision_kv = 0.
 
+    k_friction = 0.1
+
     emergency_dist_thresh = collision_threhsold/5
     emergency_tau_thresh = 3
 
@@ -35,7 +37,7 @@ def example_script(name_interface, clib_path):
     while ((not device.hardware.IsTimeout()) and (clock() < 200)):
         device.UpdateMeasurment()
 		
-        tau_q = np.zeros(len(nb_motors))
+        tau_q = np.zeros(nb_motors)
 		# Check if the controller switched to emergency mode
 		if(emergencyFlag):
 			# Compute emergency behavior
@@ -43,11 +45,14 @@ def example_script(name_interface, clib_path):
 			tau_q = computeEmergencyTorque(device.v_mes, collision_kv)
 		else:
 		    # Compute collisions distances and jacobians from the C lib. 
-			c_results = getLegsCollisionsResults(q, clib, nb_motors, 6)
-			c_dist_legs = getDistances(c_results, nb_motors, 6)
-			c_Jlegs = getJacobians(c_results, nb_motors, 6)
+			c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, 6)
+			c_dist_legs = getLegsDistances(c_results, nb_motors, 6)
+			c_Jlegs = getLegsJacobians(c_results, nb_motors, 6)
 		    # Compute collision avoidance torque
             tau_q = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, dist_thresh=collision_threshold, kp=collision_kp, kv=collision_kv)
+
+        # Set a virtual friction torque to avoid divergence
+        tau_q += -k_friction*device.v_mes
 
         # Set the computed torque as command
         device.SetDesiredJointTorque(tau_q)

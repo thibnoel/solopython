@@ -1,9 +1,13 @@
 import numpy as np
 
 # Compute a viscoelastic repulsive torque for a list of collisions results (distances + jacobians)
-def computeRepulsiveTorque(q, vq, collDistances, collJacobians, dist_thresh=0.1, kp=0, kv=0):
+def computeRepulsiveTorque(q, vq, collDistances, collJacobians, dist_thresh=0.1, kp=0, kv=0, active_pairs=[]):
     # Initialize repulsive torque
     tau_avoid = np.zeros(len(q))
+
+    # Initialize active pairs if unspecified
+    if(len(active_pairs) == 0):
+        active_pairs = [i for i in range(len(collDistances))]
 
     # Loop through the distance to check for threshold violation
     for i in range(len(collDistances)):
@@ -12,7 +16,7 @@ def computeRepulsiveTorque(q, vq, collDistances, collJacobians, dist_thresh=0.1,
 
         tau_rep = np.zeros(len(q))
         # If violation, compute viscoelastic repulsive torque along the collision jacobian
-        if(d < dist_thresh):
+        if(d < dist_thresh and i in active_pairs):
             tau_rep = -kp*(d - dist_thresh) - kv*J@vq
         tau_avoid += tau_rep*J.T
     
