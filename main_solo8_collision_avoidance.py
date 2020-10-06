@@ -2,6 +2,8 @@
 from coll_avoidance_modules.solo_coll_wrapper_c import *
 from coll_avoidance_modules.collisions_controller import *
 
+from utils.logger import Logger
+
 import numpy as np
 import argparse
 import math
@@ -12,7 +14,14 @@ from solo8 import Solo8
 def example_script(name_interface, clib_path):
 	device = Solo8(name_interface,dt=0.001)
 	nb_motors = device.nb_motors
-
+	LOGGING = False
+	
+	qc = None
+	if LOGGING:
+		# Initialize logger
+		qc = QualisysClient(ip="140.93.16.160", body_id=0) # ??
+		logger = Logger(device, qualisys=qc, logSize=50000)
+	
 	#### Set collision avoidance parameters
 	collision_threshold = 0.05
 	collision_kp = 50.
@@ -55,7 +64,10 @@ def example_script(name_interface, clib_path):
 		device.SetDesiredJointTorque(tau_q)
 		# Check the condition for triggering emergency behavior
 		#emergencyFlag = emergencyFlag or emergencyCondition(c_dist_legs, device.v_mes, tau_q, emergency_dist_thresh, emergency_tau_thresh)
-
+		# Call logger
+		if LOGGING:
+        	    logger.sample(device, qualisys=qc)
+	
 		device.SendCommand(WaitEndOfCycle=True)
 		if ((device.cpt % 100) == 0):
 			device.Print()
@@ -67,12 +79,17 @@ def example_script(name_interface, clib_path):
 	# Whatever happened we send 0 torques to the motors.
 	device.SetDesiredJointTorque([0]*nb_motors)
 	device.SendCommand(WaitEndOfCycle=True)
-
+	
+	# Save the logs of the Logger object
+	if LOGGING:
+		logger.saveAll()
+		print("Log saved")
+	
 	if device.hardware.IsTimeout():
 		print("Masterboard timeout detected.")
 		print("Either the masterboard has been shut down or there has been a connection issue with the cable/wifi.")
 		device.hardware.Stop()  # Shut down the interface between the computer and the master board
-
+	
 def main():
 	parser = argparse.ArgumentParser(description='Example masterboard use in python.')
 	parser.add_argument('-i',
