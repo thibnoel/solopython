@@ -27,6 +27,8 @@ def example_script(name_interface, clib_path):
 	collision_kp = 50.
 	collision_kv = 0.3
 
+	nb_pairs = 6
+
 	k_friction = 0.1
 
 	emergency_dist_thresh = collision_threshold/5
@@ -51,9 +53,9 @@ def example_script(name_interface, clib_path):
 			tau_q = 0*computeEmergencyTorque(device.v_mes, collision_kv)
 		else:
 			# Compute collisions distances and jacobians from the C lib. 
-			c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, 6)
-			c_dist_legs = getLegsDistances(c_results, nb_motors, 6)
-			c_Jlegs = getLegsJacobians(c_results, nb_motors, 6)
+			c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_pairs, witnessPoints=True)
+			c_dist_legs = getLegsDistances(c_results, nb_motors, nb_pairs, witnessPoints=True)
+			c_Jlegs = getLegsJacobians(c_results, nb_motors, nb_pairs, witnessPoints=True)
 			# Compute collision avoidance torque
 			tau_q = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, dist_thresh=collision_threshold, kp=collision_kp, kv=collision_kv)
 
