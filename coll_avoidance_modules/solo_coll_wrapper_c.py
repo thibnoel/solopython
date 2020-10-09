@@ -3,8 +3,10 @@ import numpy as np
 
 ######## Legs collisions 
 # Init C types and store function call in a vector y of dim (nb_motors + 1)*nb_pairs
-def getLegsCollisionsResults(q, cdll_func, nb_motors, nb_pairs):
-    ny = (nb_motors+1)*nb_pairs
+def getLegsCollisionsResults(q, cdll_func, nb_motors, nb_pairs, witnessPoints=False):
+    n_wp = 6 if witnessPoints else 0
+
+    ny = (nb_motors+1+n_wp)*nb_pairs
 
     DoubleArrayIn = c_double*nb_motors
     DoubleArrayOut = c_double*ny
@@ -19,29 +21,24 @@ def getLegsCollisionsResults(q, cdll_func, nb_motors, nb_pairs):
 
 
 # Extract distances from results vector
-def getLegsDistances(legsCollResults, nb_motors, nb_pairs):
-    return np.array([legsCollResults[i*(1+nb_motors)] for i in range(nb_pairs)])
+def getLegsDistances(legsCollResults, nb_motors, nb_pairs, witnessPoints=False):
+    n_wp = 6 if witnessPoints else 0
+    return np.array([legsCollResults[i*(1+nb_motors+n_wp)] for i in range(nb_pairs)])
 
 
 # Extract jacobians from results vector
-def getLegsJacobians(legsCollResults, nb_motors, nb_pairs):
-    return np.vstack([legsCollResults[i*(1+nb_motors) + 1 : (i+1)*(1+nb_motors)] for i in range(nb_pairs)])
+def getLegsJacobians(legsCollResults, nb_motors, nb_pairs, witnessPoints=False):
+    n_wp = 6 if witnessPoints else 0
+    return np.vstack([legsCollResults[i*(1+nb_motors+n_wp) + 1 : i*(1+nb_motors+n_wp) + 1 + nb_motors] for i in range(nb_pairs)])
 
 
-######## Shoulders collisions 
-# Init C types and store function call in a vector y of dim q_dim+1
-def getShoulderCollisionsResults(q, cdll_func, q_dim):
-    DoubleArrayIn = c_double*(2*q_dim)
-    DoubleArrayOut = c_double*(1 + q_dim)
-
-    x = np.concatenate((np.cos(q), np.sin(q))).tolist()
-    y = np.zeros(1 + q_dim).tolist()
-    
-    x = DoubleArrayIn(*x)
-    y = DoubleArrayOut(*y)
-    cdll_func.solo_autocollision_nn_shoulder_forward_zero(x,y)
-
-    return y
+def getLegsWitnessPoints(legsCollResults, nb_motors, nb_pairs):
+    wPoints = []
+    for i in range(nb_pairs):
+        ind_offset = i*(1+nb_motors+6) + 1 + nb_motors 
+        wpoint1, wpoint2 = legsCollResults[ind_offset:ind_offset+3], legsCollResults[ind_offset+3:ind_offset+6]
+        wPoints.append([wpoint1, wpoint2])
+    return wPoints
 
 
 # Extract distance from results vector
