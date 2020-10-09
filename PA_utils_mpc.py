@@ -252,10 +252,13 @@ class pybullet_simulator:
         pyb.setAdditionalSearchPath(
             "/opt/openrobots/share/example-robot-data/robots/solo_description/robots")
         self.robotId = pyb.loadURDF(
-            "solo12.urdf", robotStartPos, robotStartOrientation)
+        #    "solo12.urdf", robotStartPos, robotStartOrientation)
+            "solo.urdf", robotStartPos, robotStartOrientation)
 
         # Disable default motor control for revolute joints
-        self.revoluteJointIndices = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14]
+        #self.revoluteJointIndices = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14]
+        self.revoluteJointIndices = [0,1,3,4,6,7,9,10]
+        
         pyb.setJointMotorControlArray(self.robotId, jointIndices=self.revoluteJointIndices,
                                       controlMode=pyb.VELOCITY_CONTROL,
                                       targetVelocities=[
@@ -472,15 +475,17 @@ class PyBulletSimulator():
     def __init__(self):
 
         self.cpt = 0
-        self.nb_motors = 12
+        #self.nb_motors = 12
+        self.nb_motors = 8
         self.jointTorques = np.zeros(self.nb_motors)
-        self.revoluteJointIndices = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14]
+        #self.revoluteJointIndices = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14]
+        self.revoluteJointIndices = [0,1,3,4,6,7,9,10]
         self.hardware = Hardware()
 
         # Measured data
-        self.q_mes = np.zeros(12)
-        self.v_mes = np.zeros(12)
-        self.torquesFromCurrentMeasurment = np.zeros(12)
+        self.q_mes = np.zeros(self.nb_motors )
+        self.v_mes = np.zeros(self.nb_motors )
+        self.torquesFromCurrentMeasurment = np.zeros(self.nb_motors )
         self.baseAngularVelocity = np.zeros(3)
         self.baseOrientation = np.zeros(4)
         self.baseLinearAcceleration = np.zeros(3)

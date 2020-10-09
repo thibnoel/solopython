@@ -99,9 +99,10 @@ def mcapi_playback(name_interface, clib_path):
     enable_pyb_GUI = True
 	
     # Default position after calibration
-    q_init = np.array([0.0, 0.8, -1.6, 0, 0.8, -1.6,
-                       0, -0.8, 1.6, 0, -0.8, 1.6])
+    #q_init = np.array([0.0, 0.8, -1.6, 0, 0.8, -1.6,
+    #                   0, -0.8, 1.6, 0, -0.8, 1.6])
 	
+    q_init = [0,0,0,0,0,0,0,0]
 	#############################################
     # PARAMETERS OF THE COLL. AVOID. CONTROLLER #
     #############################################

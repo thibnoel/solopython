@@ -15,6 +15,7 @@ def example_script(name_interface, clib_path):
 	device = Solo8(name_interface,dt=0.001)
 	nb_motors = device.nb_motors
 	LOGGING = False
+	VIEWER = False
 	
 	qc = None
 	if LOGGING:
@@ -39,6 +40,10 @@ def example_script(name_interface, clib_path):
 	# Initialize emergency behavior trigger var.
 	emergencyFlag = False
 
+	# Initialize viewer
+	if VIEWER:
+		viewer_coll = viewerClient(collision_threshold, urdf="./urdf/solo8_simplified.urdf", modelPath="./urdf")
+
 	device.Init(calibrateEncoders=True)
 	#CONTROL LOOP ***************************************************
 	tau_q = np.zeros(nb_motors)
@@ -56,6 +61,9 @@ def example_script(name_interface, clib_path):
 			c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_pairs, witnessPoints=True)
 			c_dist_legs = getLegsDistances(c_results, nb_motors, nb_pairs, witnessPoints=True)
 			c_Jlegs = getLegsJacobians(c_results, nb_motors, nb_pairs, witnessPoints=True)
+
+			c_wPoints = getLegsWitnessPoints(c_results, nb_motors, nb_pairs)
+			
 			# Compute collision avoidance torque
 			tau_q = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, dist_thresh=collision_threshold, kp=collision_kp, kv=collision_kv)
 
@@ -68,7 +76,10 @@ def example_script(name_interface, clib_path):
 		#emergencyFlag = emergencyFlag or emergencyCondition(c_dist_legs, device.v_mes, tau_q, emergency_dist_thresh, emergency_tau_thresh)
 		# Call logger
 		if LOGGING:
-        	    logger.sample(device, qualisys=qc)
+        	logger.sample(device, qualisys=qc)
+
+		if VIEWER :
+			viewer_coll.display(np.concatenate(([0,0,0,0,0,0,0],q)), c_dist_legs, c_wPoints, tau_q)
 	
 		device.SendCommand(WaitEndOfCycle=True)
 		if ((device.cpt % 100) == 0):
