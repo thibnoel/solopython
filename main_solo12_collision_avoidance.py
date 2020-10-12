@@ -26,8 +26,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     
     #### Set collision avoidance parameters
     legs_threshold = 0.05
-    legs_kp = 75.
-    legs_kv = 0.4
+    legs_kp = 10.
+    legs_kv = 0.0
 
     nb_legs_pairs = 20
 
@@ -35,8 +35,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     emergency_tau_thresh = 3
 
     #### Shoulder collision parameters
-    shd_threshold = 0.5
-    shd_kp = 5
+    shd_threshold = 0.4
+    shd_kp = 2.
     shd_kv = 0.
 
     # Load the specified compiled C library
@@ -55,7 +55,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     while ((not device.hardware.IsTimeout()) and (clock() < 200)):
         device.UpdateMeasurment()
 
-
+        tau_q[:] = 0.
         # Check if the controller switched to emergency mode
         if(emergencyFlag):
             # Compute emergency behavior
@@ -75,7 +75,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             tau_legs = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, dist_thresh=legs_threshold, kp=legs_kp, kv=legs_kv)
             tau_shd = computeRepulsiveTorque(device.q_mes, device.v_mes, c_shd_dist, c_shd_jac, dist_thresh=shd_threshold, kp=shd_kp, kv=shd_kv)
 
-            tau_q += 0*tau_legs + 0*tau_shd
+            tau_q = 0*tau_legs + 1*tau_shd
 
         # Set the computed torque as command
         device.SetDesiredJointTorque(tau_q)

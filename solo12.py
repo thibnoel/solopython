@@ -26,5 +26,9 @@ class Solo12(RobotHAL):
                                           2.7726054191589355, -2.7252161502838135, 1.5070443153381348, -2.3966293334960938, 0.2065046727657318, -1.5028218030929565, 3.048154592514038, -1.1061315536499023])
         # self.encoderOffsets *= 0.
         # 180 degree roll
-        self.rotateImuVectors = lambda x: [-x[0], -x[1], x[2]]
-        self.rotateImuOrientation = lambda q: [q[3], -q[2], -q[1], q[0]]
+        # self.rotateImuVectors = lambda x: [-x[0], -x[1], x[2]]
+        # self.rotateImuOrientation = lambda q: [q[3], -q[2], -q[1], q[0]]
+
+        # IMU oriented like the base (no rotation)
+        self.rotateImuVectors = lambda x: [x[0], x[1], x[2]]
+        self.rotateImuOrientation = lambda q: [q[3], -q[2], q[1], -q[0]]

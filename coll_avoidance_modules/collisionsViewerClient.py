@@ -183,7 +183,7 @@ class NonBlockingViewerFromRobot():
         plots = [[]]*4
         line_plots = [[]]*4
         plt.figure()
-        shd_dist_landscape = np.load('/home/tnoel/stage/solo-collisions/src/python/ref_net_dist_landscape.npy', allow_pickle=True)
+        shd_dist_landscape = np.load('/home/ada/git/tnoel/solopython/coll_avoidance_modules/ref_net_dist_landscape.npy', allow_pickle=True)
         plt.suptitle("Shoulders distances")
 
         shd_dist_landscape = 1*(shd_dist_landscape > 0) + 1*(shd_dist_landscape > shd_activation_thresh) 
