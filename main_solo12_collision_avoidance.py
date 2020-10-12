@@ -29,7 +29,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     legs_kp = 75.
     legs_kv = 0.4
 
-    nb_legs_pairs = 6
+    nb_legs_pairs = 20
 
     emergency_dist_thresh = legs_threshold/5
     emergency_tau_thresh = 3
@@ -47,7 +47,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
     # Initialize viewer
     if VIEWER:
-        viewer_coll = viewerClient(legs_threshold, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo8_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
+        viewer_coll = viewerClient(legs_threshold, shd_threshold, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo12_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
 
     device.Init(calibrateEncoders=True)
     #CONTROL LOOP ***************************************************
@@ -69,7 +69,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             c_wPoints = getLegsWitnessPoints(c_results, nb_motors, nb_legs_pairs)
             
             ### Get results from C generated code (shoulder neural net)
-            c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(q, nnCCollFun, 2, offset=0.08)
+            c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 2, offset=0.08)
 
             # Compute collision avoidance torque
             tau_legs = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, dist_thresh=legs_threshold, kp=legs_kp, kv=legs_kv)
@@ -86,7 +86,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             logger.sample(device, qualisys=qc)
 
         if VIEWER :
-            viewer_coll.display(np.concatenate(([0,0,0,0,0,0,0],q)), c_dist_legs, c_shd_dist, c_wPoints, tau_legs, tau_shd)
+            viewer_coll.display(np.concatenate(([0,0,0,0,0,0,0],device.q_mes)), c_dist_legs, c_shd_dist, c_wPoints, tau_legs, tau_shd)
     
         device.SendCommand(WaitEndOfCycle=True)
         if ((device.cpt % 100) == 0):
