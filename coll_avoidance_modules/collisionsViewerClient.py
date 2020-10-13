@@ -183,14 +183,22 @@ class NonBlockingViewerFromRobot():
         plots = [[]]*4
         line_plots = [[]]*4
         plt.figure()
-        shd_dist_landscape = np.load('/home/ada/git/tnoel/solopython/coll_avoidance_modules/ref_net_dist_landscape.npy', allow_pickle=True)
+        shd_dist_landscape = np.load('/home/tnoel/stage/solo-collisions/src/python/ref_net_dist_landscape.npy', allow_pickle=True)
         plt.suptitle("Shoulders distances")
 
         shd_dist_landscape = 1*(shd_dist_landscape > 0) + 1*(shd_dist_landscape > shd_activation_thresh) 
-
+        shoulders_names = ['FL', 'FR', 'HL', 'HR']
+        shoulders_syms = [[1,1],[-1,1], [1,-1], [-1,-1]]
         for k in range(4):
+            local_dist_landscape = shd_dist_landscape.copy()
+            if(shoulders_syms[k][0] == -1):
+                local_dist_landscape = np.flip(local_dist_landscape, axis = 1)
+            if(shoulders_syms[k][1] == -1):
+                local_dist_landscape = np.flip(local_dist_landscape, axis = 0)
+            
             plt.subplot(2,2,k+1)
-            plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.gray)
+            #plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.gray)
+            plt.imshow(local_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.afmhot)
         #plt.show()
         while(1):
             for n in gv.getNodeList():
@@ -214,7 +222,7 @@ class NonBlockingViewerFromRobot():
             #print(q_viewer)
             #print(shd_dist[0])
 
-            shoulders_names = ['FL', 'FR', 'HL', 'HR']
+            
             
             #print(plots)
             for k in range(4):
