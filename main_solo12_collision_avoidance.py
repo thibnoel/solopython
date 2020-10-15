@@ -47,7 +47,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
     # Initialize viewer
     if VIEWER:
-        viewer_coll = viewerClient(legs_threshold, shd_threshold, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo12_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
+        viewer_coll = viewerClient(20, 2, thresh_legs, thresh_shd, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo12_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
 
     device.Init(calibrateEncoders=True)
     #CONTROL LOOP ***************************************************
@@ -69,7 +69,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             c_wPoints = getLegsWitnessPoints(c_results, nb_motors, nb_legs_pairs)
             
             ### Get results from C generated code (shoulder neural net)
-            c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 2, offset=0.08)
+            c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 2, offset=0.08) # 2D neural net
+            #c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 3, offset=0.18) #offset with 3 inputs: 0.18 (small), 0.11 (large)"
 
             # Compute collision avoidance torque
             tau_legs = computeRepulsiveTorque(q, vq, c_dist_legs, c_Jlegs, thresh_legs, kp_legs, kv_legs, opposeJacIfNegDist=True)
@@ -87,7 +88,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
         if VIEWER :
             viewer_coll.display(np.concatenate(([0,0,0,0,0,0,0],device.q_mes)), c_dist_legs, c_shd_dist, c_wPoints, tau_legs, tau_shd)
-    
+
         device.SendCommand(WaitEndOfCycle=True)
         if ((device.cpt % 100) == 0):
             device.Print()
