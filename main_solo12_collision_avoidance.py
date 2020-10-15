@@ -26,7 +26,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     
     #### Set collision avoidance parameters
     legs_threshold = 0.05
-    legs_kp = 10.
+    legs_kp = 70.
     legs_kv = 0.0
 
     nb_legs_pairs = 20
@@ -35,8 +35,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     emergency_tau_thresh = 3
 
     #### Shoulder collision parameters
-    shd_threshold = 0.4
-    shd_kp = 2.
+    shd_threshold = 0.2
+    shd_kp = 1.
     shd_kv = 0.
 
     # Load the specified compiled C library
@@ -47,7 +47,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
     # Initialize viewer
     if VIEWER:
-        viewer_coll = viewerClient(20, 2, thresh_legs, thresh_shd, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo12_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
+        viewer_coll = viewerClient(nb_legs_pairs, 2, legs_threshold, shd_threshold, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo12_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
 
     device.Init(calibrateEncoders=True)
     #CONTROL LOOP ***************************************************
@@ -73,10 +73,10 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             #c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 3, offset=0.18) #offset with 3 inputs: 0.18 (small), 0.11 (large)"
 
             # Compute collision avoidance torque
-            tau_legs = computeRepulsiveTorque(q, vq, c_dist_legs, c_Jlegs, thresh_legs, kp_legs, kv_legs, opposeJacIfNegDist=True)
-            tau_shd = computeRepulsiveTorque(q, vq, c_shd_dist, c_shd_jac, thresh_shd, kp_shd, kv_shd, opposeJacIfNegDist=False)
+            tau_legs = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, legs_threshold, legs_kp, legs_kv, opposeJacIfNegDist=True)
+            tau_shd = computeRepulsiveTorque(device.q_mes, device.v_mes, c_shd_dist, c_shd_jac, shd_threshold, shd_kp, shd_kv, opposeJacIfNegDist=False)
 
-            tau_q = 0*tau_legs + 0*tau_shd
+            tau_q = 1*tau_legs + 1*tau_shd
 
         # Set the computed torque as command
         device.SetDesiredJointTorque(tau_q)
