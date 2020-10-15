@@ -103,20 +103,66 @@ def visualizeShoulderDist(q_shoulder, dist, shd_thresh):
 def visualizeShoulderTorque(q_shoulder, dist, shd_thresh, shd_torque, scale=1.):
     x_vals = [q_shoulder[0][0], q_shoulder[0][0] + scale*shd_torque[0]]
     y_vals = [q_shoulder[1][0], q_shoulder[1][0] + scale*shd_torque[1]]
-    
+
+    color = 'b'
+    if(len(shd_torque) == 3):
+        color = (0,0,0.5 + shd_torque[2])
+
     if dist < shd_thresh:
-        t = plt.plot(x_vals, y_vals, c='b', linestyle='-')
+        t = plt.plot(x_vals, y_vals, c=color, linestyle='-')
     else:
-        t = plt.plot(x_vals, y_vals, c='b', linestyle='-', alpha=0)
+        t = plt.plot(x_vals, y_vals, c=color, linestyle='-', alpha=0)
     return t
 
 
+def visualizeShoulderBackground(q, shd_dist_landscape, activation_thresh, dim=2):
+    shd_dist_landscape = 1*(shd_dist_landscape > 0) + 1*(shd_dist_landscape > activation_thresh) 
+    shoulders_names = ['FL', 'FR', 'HL', 'HR']
+    shoulders_syms = [[1,1],[-1,1], [1,-1], [-1,-1]]
+    for k in range(4):
+        if dim==2:
+            local_dist_landscape = shd_dist_landscape.copy()
+        elif dim==3:
+            #ind = 0
+            ind = int(len(shd_dist_landscape)*((q[7 + k*3 + 2]%(2*np.pi))/(2*np.pi)))
+            local_dist_landscape = shd_dist_landscape[ind].copy()
+
+        if(shoulders_syms[k][0] == -1):
+            local_dist_landscape = np.flip(local_dist_landscape, axis = 1)
+        if(shoulders_syms[k][1] == -1):
+            local_dist_landscape = np.flip(local_dist_landscape, axis = 0)
+        
+        plt.subplot(2,2,k+1)
+        #plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.gray)
+        plt.imshow(local_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.afmhot)
+
+
+def visualizeShouldersCollisions(qplots, line_plots, q, shd_dist, tau_shd, activation_thresh, dim=2, dt=0):
+
+    shoulders_names = ['FL', 'FR', 'HL', 'HR']
+    shoulders_syms = [[1,1],[-1,1], [1,-1], [-1,-1]]
+    for k in range(4):
+        plt.subplot(2,2,k+1)
+        #plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi])
+        plt.title(shoulders_names[k] + '\nd = {:.3f}'.format(shd_dist[k]))
+        shd_torque = tau_shd[3*k:3*k+dim]
+        qplots[k].append(visualizeShoulderDist(q[7+3*k:7+3*k+2].tolist(), shd_dist[k], activation_thresh))
+        torque_line, = visualizeShoulderTorque(q[7+3*k:7+3*k+dim].tolist(), shd_dist[k], activation_thresh, shd_torque)
+        line_plots[k].append(torque_line)
+
+        if (len(qplots[k]) > 4):
+            qplots[k].pop(0).remove()
+        if (len(line_plots[k]) > 4):
+            line_plots[k].pop(0).remove()
+
+    plt.pause(dt)
+
 class NonBlockingViewerFromRobot():
-    def __init__(self,robot,dt=0.01,nb_pairs=0, viz_thresh=0, act_thresh_legs=0, act_thresh_shd=0, viz_shoulder=False):
+    def __init__(self,robot,dt=0.01,nb_pairs=0, viz_thresh=0, act_thresh_legs=0, act_thresh_shd=0, shoulder_nn_dim=0):
         # a shared c_double array
         self.dt = dt
         self.nb_pairs = nb_pairs
-        self.viz_shoulder = viz_shoulder
+        self.shoulder_nn_dim = shoulder_nn_dim
         self.shared_q_viewer = Array(c_double, robot.nq, lock=False)
         self.shared_tau = Array(c_double, robot.nq - 7, lock=False)
         self.shared_tau_shd = Array(c_double, robot.nq - 7, lock=False)
@@ -126,10 +172,10 @@ class NonBlockingViewerFromRobot():
         for k in range(self.nb_pairs):
             self.shared_wpoints.append([Array(c_double, 3), Array(c_double, 3)])
         
-        self.p = Process(target=self.display_process, args=(robot, self.shared_q_viewer, self.shared_wpoints, self.shared_legs_dist, self.shared_shd_dist, self.shared_tau, self.shared_tau_shd, viz_thresh, act_thresh_legs, act_thresh_shd, self.viz_shoulder))
+        self.p = Process(target=self.display_process, args=(robot, self.shared_q_viewer, self.shared_wpoints, self.shared_legs_dist, self.shared_shd_dist, self.shared_tau, self.shared_tau_shd, viz_thresh, act_thresh_legs, act_thresh_shd, self.shoulder_nn_dim))
         self.p.start()
         
-    def display_process(self,robot, shared_q_viewer, shared_wpoints, shared_legs_dist, shared_shd_dist, shared_tau, shared_tau_shd, viz_thresh, legs_activation_thresh, shd_activation_thresh, displayShoulder=False):
+    def display_process(self,robot, shared_q_viewer, shared_wpoints, shared_legs_dist, shared_shd_dist, shared_tau, shared_tau_shd, viz_thresh, legs_activation_thresh, shd_activation_thresh, shoulder_nn_dim=0):
         robot.displayVisuals(True)
         robot.displayCollisions(True)
         ''' This will run on a different process'''
@@ -180,26 +226,39 @@ class NonBlockingViewerFromRobot():
 
         count = 0
 
-        plots = [[]]*4
-        line_plots = [[]]*4
-        plt.figure()
-        shd_dist_landscape = np.load('/home/tnoel/stage/solo-collisions/src/python/ref_net_dist_landscape.npy', allow_pickle=True)
-        plt.suptitle("Shoulders distances")
+        displayShoulder = (shoulder_nn_dim > 0)
+        
+        if(displayShoulder):
+            plots = [[]]*4
+            line_plots = [[]]*4
 
-        shd_dist_landscape = 1*(shd_dist_landscape > 0) + 1*(shd_dist_landscape > shd_activation_thresh) 
-        shoulders_names = ['FL', 'FR', 'HL', 'HR']
-        shoulders_syms = [[1,1],[-1,1], [1,-1], [-1,-1]]
-        for k in range(4):
-            local_dist_landscape = shd_dist_landscape.copy()
-            if(shoulders_syms[k][0] == -1):
-                local_dist_landscape = np.flip(local_dist_landscape, axis = 1)
-            if(shoulders_syms[k][1] == -1):
-                local_dist_landscape = np.flip(local_dist_landscape, axis = 0)
+            plt.figure()
+            plt.suptitle("Shoulders distances")
+
+            shd_dist_landscape = np.load('/home/tnoel/stage/solo-collisions/src/python/ref_net_dist_landscape.npy', allow_pickle=True)
+            #visualizeShoulderBackground(q_viewer, shd_dist_landscape, shd_activation_thresh, dim=3)
+            '''
+            plt.figure()
             
-            plt.subplot(2,2,k+1)
-            #plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.gray)
-            plt.imshow(local_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.afmhot)
-        #plt.show()
+            shd_dist_landscape = np.load('/home/tnoel/stage/solo-collisions/src/python/ref_net_dist_landscape.npy', allow_pickle=True)
+            plt.suptitle("Shoulders distances")
+
+            shd_dist_landscape = 1*(shd_dist_landscape > 0) + 1*(shd_dist_landscape > shd_activation_thresh) 
+            shoulders_names = ['FL', 'FR', 'HL', 'HR']
+            shoulders_syms = [[1,1],[-1,1], [1,-1], [-1,-1]]
+            for k in range(4):
+                local_dist_landscape = shd_dist_landscape.copy()
+                if(shoulders_syms[k][0] == -1):
+                    local_dist_landscape = np.flip(local_dist_landscape, axis = 1)
+                if(shoulders_syms[k][1] == -1):
+                    local_dist_landscape = np.flip(local_dist_landscape, axis = 0)
+                
+                plt.subplot(2,2,k+1)
+                #plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.gray)
+                plt.imshow(local_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi], cmap=plt.cm.afmhot)
+            #plt.show()
+            '''
+        
         while(1):
             for n in gv.getNodeList():
                 if 'LEG_0' in n and 'collision' in n and len(n)>27:
@@ -210,6 +269,7 @@ class NonBlockingViewerFromRobot():
             
             for i in range(robot.nq - 7):
                 tau_q[i] = shared_tau[i]
+                tau_q_shd[i] = shared_tau_shd[i]
 
             for i in range(self.nb_pairs):
                 wpoints[i] = shared_wpoints[i]
@@ -219,28 +279,10 @@ class NonBlockingViewerFromRobot():
                 shd_dist[i] = shared_shd_dist[i]
 
             robot.display(q_viewer)
-            #print(q_viewer)
-            #print(shd_dist[0])
-
             
-            
-            #print(plots)
-            for k in range(4):
-
-                plt.subplot(2,2,k+1)
-                #plt.imshow(shd_dist_landscape, extent=[-np.pi, np.pi, -np.pi, np.pi])
-                plt.title(shoulders_names[k] + '\nd = {:.3f}'.format(shd_dist[k]))
-                shd_torque = shared_tau_shd[3*k:3*k+2]
-                plots[k].append(visualizeShoulderDist(q_viewer[7+3*k:7+3*k+2].tolist(), shd_dist[k], shd_activation_thresh))
-                torque_line, = visualizeShoulderTorque(q_viewer[7+3*k:7+3*k+2].tolist(), shd_dist[k], shd_activation_thresh, shd_torque)
-                line_plots[k].append(torque_line)
-                #print(plots)
-                if (len(plots[k]) > 4):
-                    plots[k].pop(0).remove()
-                if (len(line_plots[k]) > 4):
-                    line_plots[k].pop(0).remove()
-
-            plt.pause(self.dt)
+            if(displayShoulder):
+                visualizeShoulderBackground(q_viewer, shd_dist_landscape, shd_activation_thresh, dim=shoulder_nn_dim)
+                visualizeShouldersCollisions(plots, line_plots, q_viewer, shd_dist, tau_q_shd, shd_activation_thresh, dim=shoulder_nn_dim, dt=self.dt)
 
             visualizeCollisions(gv, rmodel, rdata, q_viewer, caps_frames_list, legs_dist, wpoints, viz_thresh, legs_activation_thresh, init=(count==0))
             visualizeTorques(gv, rmodel, rdata, tau_q, init=(count==0))
@@ -284,7 +326,7 @@ class NonBlockingViewerFromRobot():
 
 class viewerClient():
     #def __init__(self,urdf="/opt/openrobots/lib/python3.5/site-packages/../../../share/example-robot-data/robots/solo_description/robots/solo.urdf",modelPath="/opt/openrobots/lib/python3.5/site-packages/../../../share/example-robot-data/robots",dt=0.01):
-    def __init__(self, legs_pairs_dist_threshold, shoulders_dist_threshold, urdf = "/opt/openrobots/share/example-robot-data/robots/solo_description/robots/solo.urdf", modelPath="/opt/openrobots/share/example-robot-data/robots/solo_description/robots/"):
+    def __init__(self, nb_legs_pairs, nn_dim, legs_pairs_dist_threshold, shoulders_dist_threshold, urdf = "/opt/openrobots/share/example-robot-data/robots/solo_description/robots/solo.urdf", modelPath="/opt/openrobots/share/example-robot-data/robots/solo_description/robots/"):
         pin.switchToNumpyMatrix()
         robot = pin.RobotWrapper.BuildFromURDF( urdf, modelPath, pin.JointModelFreeFlyer())
         robot.initViewer(loadModel=True)   
@@ -293,7 +335,7 @@ class viewerClient():
 
         dt = 0.01 
 
-        self.nbv = NonBlockingViewerFromRobot(robot,dt, nb_pairs=20, viz_thresh=3*legs_pairs_dist_threshold, act_thresh_legs=legs_pairs_dist_threshold, act_thresh_shd=shoulders_dist_threshold, viz_shoulder=True)
+        self.nbv = NonBlockingViewerFromRobot(robot,dt, nb_pairs=nb_legs_pairs, viz_thresh=3*legs_pairs_dist_threshold, act_thresh_legs=legs_pairs_dist_threshold, act_thresh_shd=shoulders_dist_threshold, shoulder_nn_dim=nn_dim)
 
     def display(self,q, legs_dist, shd_dist, wpoints, tau, tau_shd):
         self.nbv.display(q)
