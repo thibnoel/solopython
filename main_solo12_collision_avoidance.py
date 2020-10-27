@@ -82,7 +82,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             tau_q = 1*tau_legs + 1*tau_shd
 
         # Set the computed torque as command
-        device.SetDesiredJointTorque(tau_q)
+        device.SetDesiredJointTorque(0*tau_q)
         # Check the condition for triggering emergency behavior
         emergencyFlag = emergencyFlag or emergencyCondition(device.q_mes, device.vq_mes, tau_q, q_bounds, vq_max, tau_max)
         # Call logger
