@@ -34,7 +34,16 @@ def computeEmergencyTorque(vq, kv):
 
 # Compute a condition to switch to the emergency behavior
 # How to deal with v ? 
-def emergencyCondition(collDistances, vq, tau_q, d_thresh, tau_thresh):
-    if(np.min(collDistances) < d_thresh or np.max(np.abs(tau_q)) > tau_thresh):
-        return True
-    return False
+
+def emergencyCondition(q, vq, tau_q, q_bounds, vq_max, tau_max):
+    for i in range(len(q)):
+        if(q[i] < q_bounds[0] or q[i] > q_bounds[1]):
+            return True
+    
+    for i in range(len(vq)):
+        if(np.abs(vq[i]) > vq_max):
+            return True
+    
+    for i in range(len(tau_q)):
+        if(np.abs(tau_q[i]) > tau_max):
+            return True
