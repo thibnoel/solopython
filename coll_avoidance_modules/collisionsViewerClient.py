@@ -237,7 +237,7 @@ class NonBlockingViewerFromRobot():
 
             #shd_dist_landscape = np.load('/home/ada/git/tnoel/solopython/coll_avoidance_modules/ref_net_dist_landscape.npy', allow_pickle=True)
             shd_dist_landscape = np.load('/home/ada/git/tnoel/solopython/coll_avoidance_modules/ref_net3d_dist_landscape.npy', allow_pickle=True)
-            #visualizeShoulderBackground(q_viewer, shd_dist_landscape, shd_activation_thresh, dim=3)
+            visualizeShoulderBackground(q_viewer, shd_dist_landscape, shd_activation_thresh, dim=3)
             '''
             plt.figure()
             

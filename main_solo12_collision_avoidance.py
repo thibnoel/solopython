@@ -36,7 +36,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
     #### Shoulder collision parameters
     shd_threshold = 0.2
-    shd_kp = 1.
+    shd_kp = 0.
     shd_kv = 0.
 
     # Load the specified compiled C library
@@ -76,7 +76,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
             tau_legs = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, legs_threshold, legs_kp, legs_kv, opposeJacIfNegDist=True)
             tau_shd = computeRepulsiveTorque(device.q_mes, device.v_mes, c_shd_dist, c_shd_jac, shd_threshold, shd_kp, shd_kv, opposeJacIfNegDist=False)
 
-            tau_q = 1*tau_legs + 1*tau_shd
+            tau_q = 1*tau_legs + 0*tau_shd
 
         # Set the computed torque as command
         device.SetDesiredJointTorque(tau_q)
