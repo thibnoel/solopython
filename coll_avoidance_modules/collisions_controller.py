@@ -35,12 +35,14 @@ def computeRepulsiveTorque(q, vq, collDistances, collJacobians, dist_thresh=0.1,
 def emergencyCondition(q, vq, tau_q, q_bounds, vq_max, tau_max):
     for i in range(len(q)):
         if(q[i] < q_bounds[0] or q[i] > q_bounds[1]):
-            return True
+            return 1
     
     for i in range(len(vq)):
         if(np.abs(vq[i]) > vq_max):
-            return True
+            return 2
     
     for i in range(len(tau_q)):
         if(np.abs(tau_q[i]) > tau_max):
-            return True
+            return 3
+
+    return 0
