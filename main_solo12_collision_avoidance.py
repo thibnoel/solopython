@@ -31,13 +31,15 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
     nb_legs_pairs = 20
 
-    emergency_dist_thresh = legs_threshold/5
-    emergency_tau_thresh = 3
-
     #### Shoulder collision parameters
     shd_threshold = 0.2
     shd_kp = 1.
     shd_kv = 0.
+
+    ### Emergency behavior switches
+    q_bounds = [-4,4]
+    vq_max = 1.0
+    tau_q_max = 1.0
 
     # Load the specified compiled C library
     cCollFun = CDLL(legs_clib_path)
@@ -60,7 +62,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
         if(emergencyFlag):
             # Compute emergency behavior
             # Ex :
-            tau_q = 0*computeEmergencyTorque(device.v_mes, legs_kv)
+            tau_q[:] = 0.
+            #tau_q = 0*computeEmergencyTorque(device.v_mes, legs_kv)
         else:
             # Compute collisions distances and jacobians from the C lib. 
             c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_legs_pairs, witnessPoints=True)
@@ -81,7 +84,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
         # Set the computed torque as command
         device.SetDesiredJointTorque(tau_q)
         # Check the condition for triggering emergency behavior
-        #emergencyFlag = emergencyFlag or emergencyCondition(c_dist_legs, device.v_mes, tau_q, emergency_dist_thresh, emergency_tau_thresh)
+        emergencyFlag = emergencyFlag or emergencyCondition(device.q_mes, device.vq_mes, tau_q, q_bounds, vq_max, tau_max)
         # Call logger
         if LOGGING:
             logger.sample(device, qualisys=qc)
