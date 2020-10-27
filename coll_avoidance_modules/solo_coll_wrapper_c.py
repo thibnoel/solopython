@@ -70,7 +70,7 @@ def getShoulderJacobian(shoulderCollResult):
 def getAllShouldersCollisionsResults(q, cdll_func, q_dim=2, offset=0):
     distances = []
     jacobians = []
-    shoulder_syms = [[1,1], [-1,1], [1,-1], [-1,-1]]
+    shoulder_syms = [[1,1,1], [-1,1,1], [1,-1,-1], [-1,-1,-1]]
 
     for shoulder_ind in range(4):
         q_ind = [k for k in range(3*shoulder_ind,3*shoulder_ind + q_dim)]
@@ -80,12 +80,16 @@ def getAllShouldersCollisionsResults(q, cdll_func, q_dim=2, offset=0):
         sym_q_val = np.array(q_val.copy())
         sym_q_val[0] = sym[0]*sym_q_val[0]
         sym_q_val[1] = sym[1]*sym_q_val[1]
+        if(q_dim>2):
+            sym_q_val[2] = sym[2]*sym_q_val[2]
 
         shoulder_result = getShoulderCollisionsResults(sym_q_val, cdll_func, q_dim)
         
         J = np.array(getShoulderJacobian(shoulder_result))
         J[0] = sym[0]*J[0]
         J[1] = sym[1]*J[1]
+        if(q_dim > 2):
+            J[2] = sym[2]*J[2]
 
         formatted_J = np.zeros(len(q))
         formatted_J[q_ind] = J
