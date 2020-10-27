@@ -26,26 +26,26 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     
     #### Set collision avoidance parameters
     legs_threshold = 0.05
-    legs_kp = 70.
+    legs_kp = 20.
     legs_kv = 0.0
 
     nb_legs_pairs = 20
 
     #### Shoulder collision parameters
     shd_threshold = 0.2
-    shd_kp = 0.
+    shd_kp = 3.
     shd_kv = 0.
 
     ### Emergency behavior switches
     q_bounds = [-4,4]
-    vq_max = 1.0
+    vq_max = 20.0
     tau_q_max = 1.0
 
     # Load the specified compiled C library
     cCollFun = CDLL(legs_clib_path)
     nnCCollFun = CDLL(shd_clib_path)
     # Initialize emergency behavior trigger var.
-    emergencyFlag = False
+    emergencyFlag = 0
 
     # Initialize viewer
     if VIEWER:
@@ -54,37 +54,31 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     device.Init(calibrateEncoders=True)
     #CONTROL LOOP ***************************************************
     tau_q = np.zeros(nb_motors)
-    while ((not device.hardware.IsTimeout()) and (clock() < 120)):
+    while ((not device.hardware.IsTimeout()) and (clock() < 120) and emergencyFlag==0):
         device.UpdateMeasurment()
 
         tau_q[:] = 0.
-        # Check if the controller switched to emergency mode
-        if(emergencyFlag):
-            # Compute emergency behavior
-            # Ex :
-            tau_q[:] = 0.
-            #tau_q = 0*computeEmergencyTorque(device.v_mes, legs_kv)
-        else:
-            # Compute collisions distances and jacobians from the C lib. 
-            c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_legs_pairs, witnessPoints=True)
-            c_dist_legs = getLegsDistances(c_results, nb_motors, nb_legs_pairs, witnessPoints=True)
-            c_Jlegs = getLegsJacobians(c_results, nb_motors, nb_legs_pairs, witnessPoints=True)
-            c_wPoints = getLegsWitnessPoints(c_results, nb_motors, nb_legs_pairs)
-            
-            ### Get results from C generated code (shoulder neural net)
-            #c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 2, offset=0.08) # 2D neural net
-            c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 3, offset=0.11) #offset with 3 inputs: 0.18 (small), 0.11 (large)"
 
-            # Compute collision avoidance torque
-            tau_legs = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, legs_threshold, legs_kp, legs_kv, opposeJacIfNegDist=True)
-            tau_shd = computeRepulsiveTorque(device.q_mes, device.v_mes, c_shd_dist, c_shd_jac, shd_threshold, shd_kp, shd_kv, opposeJacIfNegDist=False)
+        # Compute collisions distances and jacobians from the C lib. 
+        c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_legs_pairs, witnessPoints=True)
+        c_dist_legs = getLegsDistances(c_results, nb_motors, nb_legs_pairs, witnessPoints=True)
+        c_Jlegs = getLegsJacobians(c_results, nb_motors, nb_legs_pairs, witnessPoints=True)
+        c_wPoints = getLegsWitnessPoints(c_results, nb_motors, nb_legs_pairs)
+        
+        ### Get results from C generated code (shoulder neural net)
+        #c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 2, offset=0.08) # 2D neural net
+        c_shd_dist, c_shd_jac = getAllShouldersCollisionsResults(device.q_mes, nnCCollFun, 3, offset=0.11) #offset with 3 inputs: 0.18 (small), 0.11 (large)"
 
-            tau_q = 1*tau_legs + 0*tau_shd
+        # Compute collision avoidance torque
+        tau_legs = computeRepulsiveTorque(device.q_mes, device.v_mes, c_dist_legs, c_Jlegs, legs_threshold, legs_kp, legs_kv, opposeJacIfNegDist=True)
+        tau_shd = computeRepulsiveTorque(device.q_mes, device.v_mes, c_shd_dist, c_shd_jac, shd_threshold, shd_kp, shd_kv, opposeJacIfNegDist=False)
+
+        tau_q = 1*tau_legs + 1*tau_shd
 
         # Set the computed torque as command
-        device.SetDesiredJointTorque(0*tau_q)
+        device.SetDesiredJointTorque(tau_q)
         # Check the condition for triggering emergency behavior
-        emergencyFlag = emergencyFlag or emergencyCondition(device.q_mes, device.vq_mes, tau_q, q_bounds, vq_max, tau_max)
+        emergencyFlag = max(emergencyFlag, emergencyCondition(device.q_mes, device.v_mes, tau_q, q_bounds, vq_max, tau_q_max))
         # Call logger
         if LOGGING:
             logger.sample(device, qualisys=qc)
@@ -99,6 +93,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
 
 
         #****************************************************************
+
+    print("Emergency :  {}".format(emergencyFlag))
 
     # Whatever happened we send 0 torques to the motors.
     device.SetDesiredJointTorque([0]*nb_motors)
