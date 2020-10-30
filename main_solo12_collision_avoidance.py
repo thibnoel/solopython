@@ -92,7 +92,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     if VIEWER:
         viewer_coll = viewerClient(nb_legs_pairs, 3, legs_threshold, shd_threshold, urdf="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf/solo12_simplified.urdf", modelPath="/home/ada/git/tnoel/solopython/coll_avoidance_modules/urdf")
 
-    device.Init(calibrateEncoders=True)
+    device.Init(calibrateEncoders=True, q_init=q_init)
 
     put_on_the_floor(device, q_init)
     #CONTROL LOOP ***************************************************
