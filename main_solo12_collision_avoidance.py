@@ -4,6 +4,7 @@ from coll_avoidance_modules.collisions_controller import *
 from coll_avoidance_modules.collisionsViewerClient import *
 
 from utils.logger import Logger
+from pynput import keyboard
 
 import numpy as np
 import argparse
@@ -12,18 +13,23 @@ from time import clock, sleep
 from solo12 import Solo12
 
 
-def compute_pd(q_desired, v_desired, KP, KD, device, active_dof=[]):
-    if(len(active_dof) > 0):
-        arr_KP = np.zeros(12)
-        arr_KV = np.zeros(12)
-        arr_KP[active_dof] = KP
-        arr_KV[active_dof] = KV
-
+def compute_pd(q_desired, v_desired, KP, KD, device):
 	pos_error = q_desired - device.q_mes
 	vel_error = v_desired - device.v_mes
 	tau = KP * pos_error + KD * vel_error #+ KT * tau_desired
 	#tau = np.maximum(np.minimum(tau, tau_max), -tau_max) 
 	return tau
+
+
+def on_press(key):
+	global key_pressed
+	try:
+		if key == keyboard.Key.enter:
+			key_pressed = True
+			# Stop listener
+			return False
+	except AttributeError:
+		print('Unknown key {0} pressed'.format(key))
 
 
 def put_on_the_floor(device, q_init):
@@ -53,7 +59,7 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     device = Solo12(name_interface,dt=0.001)
     nb_motors = device.nb_motors
     LOGGING = False
-    VIEWER = True
+    VIEWER = False
     
     qc = None
     if LOGGING:
@@ -77,6 +83,17 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     shd_kp = 3.
     shd_kv = 0.
 
+    #### Reference traj. parameters
+    q_ref_list = '###.npy'
+    dq_ref_list = '###.npy'
+
+    traj_KP = 1*np.ones(12)
+    traj_KP[:] = 0.
+    traj_KV = 0*np.ones(12)
+
+    q_init = q_ref_list[0][7:]
+    traj_counter = 0
+
     ### Emergency behavior switches
     q_bounds = [-4,4]
     vq_max = 20.0
@@ -97,10 +114,17 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
     put_on_the_floor(device, q_init)
     #CONTROL LOOP ***************************************************
     tau_q = np.zeros(nb_motors)
+    tau_PD = np.zeros(nb_motors)
     while ((not device.hardware.IsTimeout()) and (clock() < 120) and emergencyFlag==0):
         device.UpdateMeasurment()
 
         tau_q[:] = 0.
+        tau_PD[:] = 0.
+
+        # Compute PD to follow reference traj.
+        curr_q_ref = q_ref_list[traj_counter][7:]
+        curr_dq_ref = dq_ref_list[traj_counter][6:]
+        tau_PD = compute_pd(q_desired, v_desired, KP, KD, device)
 
         # Compute collisions distances and jacobians from the C lib. 
         c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_legs_pairs, witnessPoints=True)
@@ -119,9 +143,11 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
         tau_q = 1*tau_legs + 1*tau_shd
 
         # Set the computed torque as command
-        device.SetDesiredJointTorque(tau_q)
+        tau_command = tau_q + tau_PD
+
+        device.SetDesiredJointTorque(0*tau_command)
         # Check the condition for triggering emergency behavior
-        emergencyFlag = max(emergencyFlag, emergencyCondition(device.q_mes, device.v_mes, tau_q, q_bounds, vq_max, tau_q_max))
+        emergencyFlag = max(emergencyFlag, emergencyCondition(device.q_mes, device.v_mes, tau_command, q_bounds, vq_max, tau_q_max))
         # Call logger
         if LOGGING:
             logger.sample(device, qualisys=qc)
@@ -132,7 +158,10 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
         device.SendCommand(WaitEndOfCycle=True)
         if ((device.cpt % 100) == 0):
             device.Print()
+            print('Avoid. torque')
             print(tau_q)
+            print('PD torque')
+            print(tau_PD)
 
 
         #****************************************************************
