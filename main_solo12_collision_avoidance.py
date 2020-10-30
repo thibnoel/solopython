@@ -126,6 +126,8 @@ def example_script(name_interface, legs_clib_path, shd_clib_path):
         curr_dq_ref = dq_ref_list[traj_counter][6:]
         tau_PD = compute_pd(q_desired, v_desired, KP, KD, device)
 
+        traj_counter += 1
+
         # Compute collisions distances and jacobians from the C lib. 
         c_results = getLegsCollisionsResults(device.q_mes, cCollFun, nb_motors, nb_legs_pairs, witnessPoints=True)
         c_dist_legs = getLegsDistances(c_results, nb_motors, nb_legs_pairs, witnessPoints=True)
